@@ -53,29 +53,19 @@ const LAUNCHES = gql`
 const Page = () => {
 	const { t } = useTranslation()
 
-	const [fullyLoaded, setFullyLoaded] = useState(false)
-	const { data, networkStatus, error, fetchMore, variables } = useQuery(LAUNCHES, {
-		client,
-		notifyOnNetworkStatusChange: true,
-		variables: {
-			offset: 0,
-			limit: 10,
-		},
+	// After checkbox is checked tableAttributes stores the selected value of the checkboxes
+	// I am not sure if this is the correct way of writing it down
+	// Attributes are then taken to Launch as props
+
+	//I didnt figure out how to better write the connection between checkboxes and show/hide columns
+
+	const [tableAttributes, setTableAttributes] = useState<{ attributes: any }>({
+		attributes: ['mission', 'date', 'rocket', 'launch'],
 	})
 
-	// After checkbox is checks tableAttributes stores the selected value of the checkboxes.
-	// I am not sure if this is the correct way of writing it down.
-	// Attributes are then taken to launch.ts as props in "launch function"
-	const [tableAttributes, setTableAttributes] = useState<{ attributes: any }>({
-		attributes: ['mission','date','rocket','launch'],
-	})
-	
-	
 	const handleChange = (e: any) => {
 		const { value, checked } = e.target
 		const { attributes } = tableAttributes
-
-	
 
 		// Case 1 : The user checks the box
 		if (checked) {
@@ -87,10 +77,24 @@ const Page = () => {
 		// Case 2  : The user unchecks the box
 		else {
 			setTableAttributes({
-				attributes: attributes.filter((e:any) => e !== value),
+				attributes: attributes.filter((e: any) => e !== value),
 			})
 		}
 	}
+
+	// infinite loading
+	// notifyOnNetworkStatusChange tells if it's an initial load or our fetch load
+	// in if statements we then compare if networkStatus is loading or fetchMore loading
+	
+	const [fullyLoaded, setFullyLoaded] = useState(false)
+	const { data, networkStatus, error, fetchMore, variables } = useQuery(LAUNCHES, {
+		client,
+		notifyOnNetworkStatusChange: true,
+		variables: {
+			offset: 0,
+			limit: 10,
+		},
+	})
 
 	if (networkStatus === NetworkStatus.loading) {
 		return <div>Loading...</div>
@@ -99,7 +103,7 @@ const Page = () => {
 	if (error) {
 		return <div>{error.message}</div>
 	}
-	
+
 	return (
 		<>
 			<div>
@@ -175,18 +179,24 @@ const Page = () => {
 			</table>
 
 			{variables && networkStatus !== NetworkStatus.fetchMore && data.launches.length % variables.limit === 0 && !fullyLoaded && (
-				<InView
-					onChange={async (inView) => {
-						if (inView) {
-							const result = await fetchMore({
-								variables: {
-									offset: data.launches.length,
-								},
-							})
-							setFullyLoaded(!result.data.launches.length)
-						}
-					}}
-				/>
+				<div>
+					{/*We use react-intersection-observer, so we can tell when is element in or out of view - we can call fetchMore to load more 
+					data if we are at the end of the page,
+					it has InView component, where we use fetchMore function - we update offset to the number of loaded launches*/}
+					<InView
+						onChange={async (inView) => {
+							if (inView) {
+								const result = await fetchMore({
+									variables: {
+										offset: data.launches.length,
+									},
+								})
+								// if returned data doesnt contains any launches - data are fully loaded
+								setFullyLoaded(!result.data.launches.length)
+							}
+						}}
+					/>
+				</div>
 			)}
 		</>
 	)
